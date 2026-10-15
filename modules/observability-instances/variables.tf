@@ -25,7 +25,7 @@ variable "vpc_cidr" {
 }
 
 variable "subnet_ids" {
-  description = "Private subnet IDs. Instances are spread across them round-robin."
+  description = "Public subnet IDs. Instances are spread across them round-robin."
   type        = list(string)
 }
 
@@ -54,15 +54,9 @@ variable "instance_type" {
 }
 
 variable "root_volume_size" {
-  description = "Root volume size in GiB."
+  description = "Size in GiB of the single (root) disk of each instance, which holds the OS and application data."
   type        = number
-  default     = 8
-}
-
-variable "data_volume_sizes" {
-  description = "Data volume size in GiB per role. Overrides the module defaults."
-  type        = map(number)
-  default     = null
+  default     = 30
 }
 
 variable "secret_recovery_window_in_days" {

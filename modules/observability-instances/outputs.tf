@@ -8,14 +8,14 @@ output "private_ips" {
   value       = { for role, i in aws_instance.this : role => i.private_ip }
 }
 
+output "public_ips" {
+  description = "Public IPs keyed by role."
+  value       = { for role, i in aws_instance.this : role => i.public_ip }
+}
+
 output "security_group_ids" {
   description = "Security group IDs keyed by role."
   value       = { for role, sg in aws_security_group.this : role => sg.id }
-}
-
-output "data_volume_ids" {
-  description = "Data EBS volume IDs keyed by role."
-  value       = { for role, v in aws_ebs_volume.data : role => v.id }
 }
 
 output "ssh_private_key_secret_arns" {

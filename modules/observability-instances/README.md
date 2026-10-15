@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Deploys four small Amazon Linux 2023 EC2 instances in private subnets for a Grafana sandbox: **grafana**, **prometheus**, **database** and **alloy** (Alloy gateway). The instances are bare: no user_data, no software. Each has an encrypted root volume plus a separate encrypted, unformatted data volume (`aws_ebs_volume` + `aws_volume_attachment`) at `/dev/sdf`. Security groups pre-open the expected ports (Grafana 3000, Prometheus 9090, PostgreSQL 5432, Alloy 4317/4318/12345). Access is through SSM Session Manager only; there are no public IPs. Each instance has its own ED25519 key pair; the private key is stored in Secrets Manager (`<name_prefix>/<role>/ssh-private-key`). Port 22 is not opened in the security groups; tunnel SSH through SSM Session Manager or add a rule.
+Deploys four small Amazon Linux 2023 EC2 instances in public subnets for a Grafana sandbox: **grafana**, **prometheus**, **database** and **alloy** (Alloy gateway). The instances are bare: no user_data, no software. Each has a single encrypted gp3 disk (the root volume, 30 GiB by default) and a public IP. Security groups pre-open the expected ports (Grafana 3000, Prometheus 9090, PostgreSQL 5432, Alloy 4317/4318/12345). Security groups only allow traffic from the VPC CIDR (and between the instances), so the public IPs are not reachable from the internet until you add rules; SSM Session Manager works out of the box. Each instance has its own ED25519 key pair; the private key is stored in Secrets Manager (`<name_prefix>/<role>/ssh-private-key`). Port 22 is not opened in the security groups; tunnel SSH through SSM Session Manager or add a rule.
 
 ## Requirements
 
@@ -12,7 +12,7 @@ Deploys four small Amazon Linux 2023 EC2 instances in private subnets for a Graf
 | aws | ~> 5.0 |
 | tls | ~> 4.0 |
 
-Nothing is installed on the instances; software is installed manually after deployment. The private subnets have outbound internet access via NAT for that.
+Nothing is installed on the instances; software is installed manually after deployment. The public subnets reach the internet through the internet gateway for that.
 
 ## Usage
 
@@ -41,13 +41,12 @@ Connect with `aws ssm start-session --target <instance_id>`; the `grafana_port_f
 | owner | string | Owner tag value | n/a | yes |
 | vpc_id | string | VPC ID | n/a | yes |
 | vpc_cidr | string | VPC CIDR; may reach Grafana and Alloy | n/a | yes |
-| subnet_ids | list(string) | Private subnet IDs | n/a | yes |
+| subnet_ids | list(string) | Public subnet IDs | n/a | yes |
 | subnet_cidrs | list(string) | CIDRs of `subnet_ids`, same order | n/a | yes |
 | service | string | Service name in the naming pattern | `"observability"` | no |
 | name_prefix | string | Prefix for all resource names | `null` (`{customer}-{environment}-{service}`) | no |
 | instance_type | string | Instance type for all instances | `"t3.small"` | no |
-| root_volume_size | number | Root volume GiB | `8` | no |
-| data_volume_sizes | map(number) | Per-role data volume GiB override | `null` | no |
+| root_volume_size | number | Size of the single (root) disk in GiB | `30` | no |
 | secret_recovery_window_in_days | number | Recovery window for the SSH key secrets | `7` | no |
 | tags | map(string) | Extra tags | `null` | no |
 
@@ -57,7 +56,7 @@ Connect with `aws ssm start-session --target <instance_id>`; the `grafana_port_f
 |------|-------------|
 | instance_ids | Instance IDs by role |
 | private_ips | Fixed private IPs by role |
+| public_ips | Public IPs by role |
 | security_group_ids | Security group IDs by role |
-| data_volume_ids | Data EBS volume IDs by role |
 | ssh_private_key_secret_arns | Secrets Manager ARNs of the SSH private keys by role |
 | grafana_port_forward_command | SSM port-forward command for the Grafana UI |

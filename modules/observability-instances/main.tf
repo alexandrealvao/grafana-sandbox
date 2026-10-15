@@ -3,11 +3,6 @@ data "aws_ssm_parameter" "al2023" {
   name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
 }
 
-data "aws_subnet" "selected" {
-  for_each = toset(var.subnet_ids)
-  id       = each.value
-}
-
 locals {
   name_prefix = coalesce(var.name_prefix, "${var.customer}-${var.environment}-${var.service}")
 
@@ -25,34 +20,25 @@ locals {
   # IAM resources therefore omit Owner; the provider default tag still records the owner.
   iam_tags = { for k, v in local.common_tags : k => v if lower(k) != "owner" }
 
-  # Sizing reasoning: t3.small (2 vCPU / 2 GiB) is enough for a sandbox. Each role gets a dedicated
-  # data volume so the root volume can be replaced without touching Prometheus/DB/Grafana state.
-  # Fixed private IPs (host offset inside the subnet) let the instances reference each other in
-  # user_data without creating a dependency cycle.
+  # Sizing reasoning: t3.small (2 vCPU / 2 GiB) is enough for a sandbox. Each instance has a single
+  # (root) disk that holds the OS and the application data.
+  # Fixed private IPs (host offset inside the subnet) keep addresses stable across replacements.
   instances = {
     grafana = {
       subnet_index = 0
       host_offset  = 10
-      data_gib     = 10
-      mount_point  = "/var/lib/grafana"
     }
     prometheus = {
       subnet_index = 1
       host_offset  = 10
-      data_gib     = 20
-      mount_point  = "/var/lib/prometheus"
     }
     database = {
       subnet_index = 2
       host_offset  = 10
-      data_gib     = 20
-      mount_point  = "/var/lib/pgsql"
     }
     alloy = {
       subnet_index = 0
       host_offset  = 11
-      data_gib     = 5
-      mount_point  = "/var/lib/alloy"
     }
   }
 
@@ -63,12 +49,7 @@ locals {
         var.subnet_cidrs[cfg.subnet_index % length(var.subnet_cidrs)],
         cfg.host_offset,
       )
-      az = data.aws_subnet.selected[var.subnet_ids[cfg.subnet_index % length(var.subnet_ids)]].availability_zone
     }
-  }
-
-  data_gib = {
-    for role, cfg in local.instances : role => try(var.data_volume_sizes[role], cfg.data_gib)
   }
 }
 
@@ -220,43 +201,21 @@ resource "aws_vpc_security_group_ingress_rule" "this" {
 }
 
 ################################################################################
-# Data volumes (separate from the instance, per standards)
-################################################################################
-
-resource "aws_ebs_volume" "data" {
-  for_each = local.instances
-
-  availability_zone = local.placement[each.key].az
-  size              = local.data_gib[each.key]
-  type              = "gp3"
-  encrypted         = true
-
-  tags = merge(local.common_tags, { Name = "${local.name_prefix}-${each.key}-data" })
-}
-
-resource "aws_volume_attachment" "data" {
-  for_each = local.instances
-
-  device_name                    = "/dev/sdf"
-  volume_id                      = aws_ebs_volume.data[each.key].id
-  instance_id                    = aws_instance.this[each.key].id
-  stop_instance_before_detaching = true
-}
-
-################################################################################
 # Instances
 ################################################################################
 
 resource "aws_instance" "this" {
   for_each = local.instances
 
-  ami                    = data.aws_ssm_parameter.al2023.value
-  instance_type          = var.instance_type
-  key_name               = aws_key_pair.this[each.key].key_name
-  subnet_id              = local.placement[each.key].subnet_id
-  private_ip             = local.placement[each.key].private_ip
-  vpc_security_group_ids = [aws_security_group.this[each.key].id]
-  iam_instance_profile   = aws_iam_instance_profile.this.name
+  ami           = data.aws_ssm_parameter.al2023.value
+  instance_type = var.instance_type
+  key_name      = aws_key_pair.this[each.key].key_name
+  subnet_id     = local.placement[each.key].subnet_id
+  private_ip    = local.placement[each.key].private_ip
+  # Public subnet: instances get a public IP. Security groups still only allow traffic from the VPC.
+  associate_public_ip_address = true
+  vpc_security_group_ids      = [aws_security_group.this[each.key].id]
+  iam_instance_profile        = aws_iam_instance_profile.this.name
 
   metadata_options {
     http_endpoint = "enabled"
