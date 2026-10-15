@@ -9,8 +9,8 @@ output "private_ips" {
 }
 
 output "public_ips" {
-  description = "Public IPs keyed by role."
-  value       = { for role, i in aws_instance.this : role => i.public_ip }
+  description = "Elastic IPs keyed by role."
+  value       = { for role, e in aws_eip.this : role => e.public_ip }
 }
 
 output "security_group_ids" {
@@ -26,4 +26,9 @@ output "ssh_private_key_secret_arns" {
 output "grafana_port_forward_command" {
   description = "Command to reach the Grafana UI on http://localhost:3000 through SSM Session Manager."
   value       = "aws ssm start-session --target ${aws_instance.this["grafana"].id} --document-name AWS-StartPortForwardingSession --parameters portNumber=3000,localPortNumber=3000"
+}
+
+output "dns_names" {
+  description = "Fully qualified DNS names keyed by role (empty when dns_zone_name is null)."
+  value       = { for role, r in aws_route53_record.this : role => r.fqdn }
 }

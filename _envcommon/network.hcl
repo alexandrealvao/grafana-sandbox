@@ -18,7 +18,7 @@ inputs = {
   kubernetes_clusters_secure = []
   kubernetes_clusters_type   = "shared"
 
-  public_nacl_inbound_tcp_ports  = ["80", "443"]
+  public_nacl_inbound_tcp_ports  = ["80", "443", "22"]
   public_nacl_outbound_tcp_ports = ["0"]
   public_nacl_inbound_udp_ports  = []
   public_nacl_outbound_udp_ports = ["0"]

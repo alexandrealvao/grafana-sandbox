@@ -30,4 +30,9 @@ inputs = {
 
   name_prefix   = "grafana-sandbox"
   instance_type = "t3.small"
+
+  # SSH open to the whole internet (requested). Restrict to your own IP when possible.
+  ssh_allowed_cidrs = ["0.0.0.0/0"]
+
+  dns_zone_name = "labs3.dnx.host"
 }

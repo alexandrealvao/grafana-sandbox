@@ -212,8 +212,8 @@ resource "aws_instance" "this" {
   key_name      = aws_key_pair.this[each.key].key_name
   subnet_id     = local.placement[each.key].subnet_id
   private_ip    = local.placement[each.key].private_ip
-  # Public subnet: instances get a public IP. Security groups still only allow traffic from the VPC.
-  associate_public_ip_address = true
+  # Public subnet: the public address is the Elastic IP below, not an auto-assigned one.
+  associate_public_ip_address = false
   vpc_security_group_ids      = [aws_security_group.this[each.key].id]
   iam_instance_profile        = aws_iam_instance_profile.this.name
 
@@ -238,4 +238,55 @@ resource "aws_instance" "this" {
   }
 
   depends_on = [aws_vpc_security_group_egress_rule.all]
+}
+
+# SSH from the allowed CIDRs. The public NACL (network stack) must also allow inbound TCP 22.
+resource "aws_vpc_security_group_ingress_rule" "ssh" {
+  for_each = {
+    for pair in setproduct(keys(local.instances), toset(coalesce(var.ssh_allowed_cidrs, []))) :
+    "${pair[0]}-${pair[1]}" => { role = pair[0], cidr = pair[1] }
+  }
+
+  security_group_id = aws_security_group.this[each.value.role].id
+  description       = "SSH from ${each.value.cidr}"
+  ip_protocol       = "tcp"
+  from_port         = 22
+  to_port           = 22
+  cidr_ipv4         = each.value.cidr
+
+  tags = local.common_tags
+}
+
+################################################################################
+# Elastic IPs (stable public addresses; security groups still only allow VPC traffic)
+################################################################################
+
+resource "aws_eip" "this" {
+  for_each = local.instances
+
+  domain   = "vpc"
+  instance = aws_instance.this[each.key].id
+
+  tags = merge(local.common_tags, { Name = "${local.name_prefix}-${each.key}" })
+}
+
+################################################################################
+# DNS (A records in an existing public hosted zone)
+################################################################################
+
+data "aws_route53_zone" "public" {
+  count = var.dns_zone_name == null ? 0 : 1
+
+  name         = var.dns_zone_name
+  private_zone = false
+}
+
+resource "aws_route53_record" "this" {
+  for_each = var.dns_zone_name == null ? {} : local.instances
+
+  zone_id = data.aws_route53_zone.public[0].zone_id
+  name    = "${local.name_prefix}-${each.key}.${var.dns_zone_name}"
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.this[each.key].public_ip]
 }

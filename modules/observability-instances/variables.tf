@@ -65,6 +65,18 @@ variable "secret_recovery_window_in_days" {
   default     = 7
 }
 
+variable "ssh_allowed_cidrs" {
+  description = "CIDR blocks allowed to reach SSH (TCP 22) on every instance. Empty or null opens nothing."
+  type        = list(string)
+  default     = null
+}
+
+variable "dns_zone_name" {
+  description = "Existing public Route 53 zone (e.g. labs3.dnx.host). When set, an A record <name_prefix>-<role>.<zone> is created per instance."
+  type        = string
+  default     = null
+}
+
 variable "tags" {
   description = "Additional tags merged onto every resource."
   type        = map(string)
