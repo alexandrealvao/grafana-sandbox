@@ -16,3 +16,8 @@
 argo-workflows/
 # Local credential/assume-role scratch files - never commit
 **/.temp.assume
+
+# SSH private keys - never commit
+keys/
+*.pem
+*.key
