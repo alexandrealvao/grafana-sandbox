@@ -28,5 +28,6 @@ inputs = {
   subnet_ids   = dependency.network.outputs.private_subnet_ids
   subnet_cidrs = dependency.network.outputs.private_subnet_cidrs
 
+  name_prefix   = "grafana-sandbox"
   instance_type = "t3.small"
 }

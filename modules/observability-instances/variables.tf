@@ -41,6 +41,12 @@ variable "service" {
   default     = "observability"
 }
 
+variable "name_prefix" {
+  description = "Prefix for all resource names. Defaults to {customer}-{environment}-{service}."
+  type        = string
+  default     = null
+}
+
 variable "instance_type" {
   description = "EC2 instance type for all four instances (small x86_64 burstable is enough for a sandbox)."
   type        = string

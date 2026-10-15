@@ -9,7 +9,7 @@ data "aws_subnet" "selected" {
 }
 
 locals {
-  name_prefix = "${var.customer}-${var.environment}-${var.service}"
+  name_prefix = coalesce(var.name_prefix, "${var.customer}-${var.environment}-${var.service}")
 
   common_tags = merge(
     {
@@ -20,6 +20,10 @@ locals {
     },
     var.tags,
   )
+
+  # IAM tag keys are case-insensitive, so "Owner" clashes with the provider default tag "owner".
+  # IAM resources therefore omit Owner; the provider default tag still records the owner.
+  iam_tags = { for k, v in local.common_tags : k => v if lower(k) != "owner" }
 
   # Sizing reasoning: t3.small (2 vCPU / 2 GiB) is enough for a sandbox. Each role gets a dedicated
   # data volume so the root volume can be replaced without touching Prometheus/DB/Grafana state.
@@ -90,7 +94,7 @@ resource "aws_key_pair" "this" {
 resource "aws_secretsmanager_secret" "private_key" {
   for_each = local.instances
 
-  name                    = "${var.customer}/${var.environment}/${var.service}/${each.key}/ssh-private-key"
+  name                    = "${local.name_prefix}/${each.key}/ssh-private-key"
   description             = "SSH private key (OpenSSH format) for the ${each.key} instance"
   recovery_window_in_days = var.secret_recovery_window_in_days
 
@@ -123,7 +127,7 @@ resource "aws_iam_role" "this" {
   name               = "${local.name_prefix}-ec2"
   assume_role_policy = data.aws_iam_policy_document.assume_ec2.json
 
-  tags = local.common_tags
+  tags = local.iam_tags
 }
 
 resource "aws_iam_role_policy_attachment" "ssm_core" {
@@ -135,7 +139,7 @@ resource "aws_iam_instance_profile" "this" {
   name = "${local.name_prefix}-ec2"
   role = aws_iam_role.this.name
 
-  tags = local.common_tags
+  tags = local.iam_tags
 }
 
 ################################################################################

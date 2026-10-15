@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Deploys four small Amazon Linux 2023 EC2 instances in private subnets for a Grafana sandbox: **grafana**, **prometheus**, **database** and **alloy** (Alloy gateway). The instances are bare: no user_data, no software. Each has an encrypted root volume plus a separate encrypted, unformatted data volume (`aws_ebs_volume` + `aws_volume_attachment`) at `/dev/sdf`. Security groups pre-open the expected ports (Grafana 3000, Prometheus 9090, PostgreSQL 5432, Alloy 4317/4318/12345). Access is through SSM Session Manager only; there are no public IPs. Each instance has its own ED25519 key pair; the private key is stored in Secrets Manager (`<customer>/<environment>/<service>/<role>/ssh-private-key`). Port 22 is not opened in the security groups; tunnel SSH through SSM Session Manager or add a rule.
+Deploys four small Amazon Linux 2023 EC2 instances in private subnets for a Grafana sandbox: **grafana**, **prometheus**, **database** and **alloy** (Alloy gateway). The instances are bare: no user_data, no software. Each has an encrypted root volume plus a separate encrypted, unformatted data volume (`aws_ebs_volume` + `aws_volume_attachment`) at `/dev/sdf`. Security groups pre-open the expected ports (Grafana 3000, Prometheus 9090, PostgreSQL 5432, Alloy 4317/4318/12345). Access is through SSM Session Manager only; there are no public IPs. Each instance has its own ED25519 key pair; the private key is stored in Secrets Manager (`<name_prefix>/<role>/ssh-private-key`). Port 22 is not opened in the security groups; tunnel SSH through SSM Session Manager or add a rule.
 
 ## Requirements
 
@@ -44,6 +44,7 @@ Connect with `aws ssm start-session --target <instance_id>`; the `grafana_port_f
 | subnet_ids | list(string) | Private subnet IDs | n/a | yes |
 | subnet_cidrs | list(string) | CIDRs of `subnet_ids`, same order | n/a | yes |
 | service | string | Service name in the naming pattern | `"observability"` | no |
+| name_prefix | string | Prefix for all resource names | `null` (`{customer}-{environment}-{service}`) | no |
 | instance_type | string | Instance type for all instances | `"t3.small"` | no |
 | root_volume_size | number | Root volume GiB | `8` | no |
 | data_volume_sizes | map(number) | Per-role data volume GiB override | `null` | no |
