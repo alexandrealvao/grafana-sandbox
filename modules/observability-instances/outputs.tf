@@ -32,3 +32,8 @@ output "dns_names" {
   description = "Fully qualified DNS names keyed by role (empty when dns_zone_name is null)."
   value       = { for role, r in aws_route53_record.this : role => r.fqdn }
 }
+
+output "private_dns_names" {
+  description = "DNS names that resolve to private IPs inside the VPC, keyed by role (empty when private_dns is false)."
+  value       = { for role, r in aws_route53_record.private : role => r.fqdn }
+}

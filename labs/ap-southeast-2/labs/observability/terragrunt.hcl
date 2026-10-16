@@ -40,4 +40,6 @@ inputs = {
   # in the git-ignored terraform.tfvars next to this file. See terraform.tfvars.example.
 
   dns_zone_name = "labs3.dnx.host"
+  # Inside the VPC the same names resolve to private IPs (needed for SG-referenced rules).
+  private_dns = true
 }

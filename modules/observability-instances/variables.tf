@@ -94,6 +94,12 @@ variable "dns_zone_name" {
   default     = null
 }
 
+variable "private_dns" {
+  description = "When true (and dns_zone_name is set), create one private hosted zone per host, named exactly like its public record and attached to the VPC, so the name resolves to the private IP inside the VPC (SG-referenced rules then match). Other names in the public zone are not affected."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Additional tags merged onto every resource."
   type        = map(string)

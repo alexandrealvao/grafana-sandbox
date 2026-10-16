@@ -53,6 +53,7 @@ Connect with `aws ssm start-session --target <instance_id>`; the `grafana_port_f
 | admin_cidrs | list(string) | Your IP(s): SSH 22 on all instances, Grafana UI 3000, Alloy UI 12345 | `null` (must be set; validation fails otherwise) | yes |
 | ping_allowed_cidrs | list(string) | CIDRs allowed to ping every instance | `null` | no |
 | public_nacl_id | string | Public subnets' NACL; needed so ping works through it | `null` | no |
+| private_dns | bool | Per-host private zones so the DNS names resolve to private IPs inside the VPC | `false` | no |
 | dns_zone_name | string | Existing public Route 53 zone; creates `<name_prefix>-<role>.<zone>` A records | `null` | no |
 | tags | map(string) | Extra tags | `null` | no |
 
@@ -64,6 +65,7 @@ Connect with `aws ssm start-session --target <instance_id>`; the `grafana_port_f
 | private_ips | Fixed private IPs by role |
 | public_ips | Elastic IPs by role |
 | dns_names | DNS names by role |
+| private_dns_names | Names resolving to private IPs inside the VPC, by role |
 | security_group_ids | Security group IDs by role |
 | ssh_private_key_secret_arn | Secrets Manager ARN of the shared SSH private key |
 | grafana_port_forward_command | SSM port-forward command for the Grafana UI |

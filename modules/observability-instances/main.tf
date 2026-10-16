@@ -346,3 +346,31 @@ resource "aws_route53_record" "this" {
   ttl     = 300
   records = [aws_eip.this[each.key].public_ip]
 }
+
+# Split-horizon DNS: inside the VPC, <name_prefix>-<role>.<zone> must resolve to the private IP.
+# Otherwise instances reach each other through the Elastic IP, the traffic leaves via the internet
+# gateway and security-group-referenced rules (e.g. Grafana -> PostgreSQL) do not match.
+# One tiny private zone per host, named exactly like the public record, overrides only that name
+# for this VPC, so the other records of the (shared) public zone keep resolving normally.
+resource "aws_route53_zone" "private" {
+  for_each = var.dns_zone_name != null && var.private_dns ? local.instances : {}
+
+  name    = "${local.name_prefix}-${each.key}.${var.dns_zone_name}"
+  comment = "Private override for ${each.key} (resolves to the private IP inside the VPC)"
+
+  vpc {
+    vpc_id = var.vpc_id
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_route53_record" "private" {
+  for_each = aws_route53_zone.private
+
+  zone_id = each.value.zone_id
+  name    = each.value.name
+  type    = "A"
+  ttl     = 60
+  records = [aws_instance.this[each.key].private_ip]
+}
