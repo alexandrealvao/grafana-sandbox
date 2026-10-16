@@ -12,6 +12,7 @@ dependency "network" {
   mock_outputs = {
     vpc_id               = "vpc-00000000"
     cidr_block           = "172.16.0.0/16"
+    public_nacl_id       = "acl-00000000"
     public_subnet_ids   = ["subnet-00000001", "subnet-00000002", "subnet-00000003"]
     public_subnet_cidrs = ["172.16.0.0/20", "172.16.16.0/20", "172.16.32.0/20"]
   }
@@ -30,6 +31,10 @@ inputs = {
 
   name_prefix   = "grafana-sandbox"
   instance_type = "t3.small"
+
+  # Ping from anywhere (requested). The NACL rules for it come from public_nacl_id.
+  ping_allowed_cidrs = ["0.0.0.0/0"]
+  public_nacl_id     = dependency.network.outputs.public_nacl_id
 
   # admin_cidrs (your public IP as a /32: SSH on all instances, Grafana 3000, Alloy UI 12345) is set
   # in the git-ignored terraform.tfvars next to this file. See terraform.tfvars.example.

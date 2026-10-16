@@ -51,6 +51,8 @@ Connect with `aws ssm start-session --target <instance_id>`; the `grafana_port_f
 | root_volume_size | number | Size of the single (root) disk in GiB | `30` | no |
 | secret_recovery_window_in_days | number | Recovery window for the SSH key secrets | `7` | no |
 | admin_cidrs | list(string) | Your IP(s): SSH 22 on all instances, Grafana UI 3000, Alloy UI 12345 | `null` (must be set; validation fails otherwise) | yes |
+| ping_allowed_cidrs | list(string) | CIDRs allowed to ping every instance | `null` | no |
+| public_nacl_id | string | Public subnets' NACL; needed so ping works through it | `null` | no |
 | dns_zone_name | string | Existing public Route 53 zone; creates `<name_prefix>-<role>.<zone>` A records | `null` | no |
 | tags | map(string) | Extra tags | `null` | no |
 

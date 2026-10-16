@@ -76,6 +76,18 @@ variable "admin_cidrs" {
   }
 }
 
+variable "ping_allowed_cidrs" {
+  description = "CIDR blocks allowed to ping (ICMP echo) every instance. Empty or null opens nothing."
+  type        = list(string)
+  default     = null
+}
+
+variable "public_nacl_id" {
+  description = "ID of the public subnets' network ACL. Required for ping_allowed_cidrs to work: the NACL only allows echo replies in and echo requests out by default."
+  type        = string
+  default     = null
+}
+
 variable "dns_zone_name" {
   description = "Existing public Route 53 zone (e.g. labs3.dnx.host). When set, an A record <name_prefix>-<role>.<zone> is created per instance."
   type        = string

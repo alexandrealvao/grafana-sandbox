@@ -264,6 +264,55 @@ resource "aws_vpc_security_group_ingress_rule" "admin" {
   tags = local.common_tags
 }
 
+# Ping (ICMP echo request, type 8) from ping_allowed_cidrs on every instance.
+resource "aws_vpc_security_group_ingress_rule" "ping" {
+  for_each = {
+    for pair in setproduct(keys(local.instances), coalesce(var.ping_allowed_cidrs, [])) :
+    "${pair[0]}-${pair[1]}" => { role = pair[0], cidr = pair[1] }
+  }
+
+  security_group_id = aws_security_group.this[each.value.role].id
+  description       = "Ping from ${each.value.cidr}"
+  ip_protocol       = "icmp"
+  from_port         = 8
+  to_port           = -1
+  cidr_ipv4         = each.value.cidr
+
+  tags = local.common_tags
+}
+
+# The public NACL (owned by the network stack) only lets echo replies in and echo requests out, so
+# add echo request in (type 8) and echo reply out (type 0). Rule numbers 520+ avoid the module's 501.
+locals {
+  ping_nacl_cidrs = var.public_nacl_id == null ? {} : { for i, c in coalesce(var.ping_allowed_cidrs, []) : tostring(520 + i) => c }
+}
+
+resource "aws_network_acl_rule" "ping_in" {
+  for_each = local.ping_nacl_cidrs
+
+  network_acl_id = var.public_nacl_id
+  rule_number    = tonumber(each.key)
+  egress         = false
+  protocol       = "icmp"
+  rule_action    = "allow"
+  cidr_block     = each.value
+  icmp_type      = 8
+  icmp_code      = -1
+}
+
+resource "aws_network_acl_rule" "ping_out" {
+  for_each = local.ping_nacl_cidrs
+
+  network_acl_id = var.public_nacl_id
+  rule_number    = tonumber(each.key)
+  egress         = true
+  protocol       = "icmp"
+  rule_action    = "allow"
+  cidr_block     = each.value
+  icmp_type      = 0
+  icmp_code      = -1
+}
+
 ################################################################################
 # Elastic IPs (stable public addresses; security groups still only allow VPC traffic)
 ################################################################################
