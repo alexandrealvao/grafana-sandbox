@@ -145,14 +145,14 @@ resource "aws_vpc_security_group_egress_rule" "all" {
 }
 
 locals {
-  # node_exporter (9100) on every instance, scraped by the Alloy gateway.
+  # node_exporter (9100) on every instance, reachable from anywhere in the VPC.
   node_exporter_rules = {
     for role in keys(local.instances) : "${role}-node-exporter" => {
       target      = role
       port        = 9100
-      source_type = "sg"
-      source      = "alloy"
-      description = "Alloy scrapes node_exporter"
+      source_type = "cidr"
+      source      = var.vpc_cidr
+      description = "node_exporter from the VPC"
     }
   }
 
