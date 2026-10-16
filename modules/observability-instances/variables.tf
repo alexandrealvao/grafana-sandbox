@@ -65,10 +65,15 @@ variable "secret_recovery_window_in_days" {
   default     = 7
 }
 
-variable "ssh_allowed_cidrs" {
-  description = "CIDR blocks allowed to reach SSH (TCP 22) on every instance. Empty or null opens nothing."
+variable "admin_cidrs" {
+  description = "Your IP(s) as CIDRs (e.g. 203.0.113.7/32). Allowed to reach SSH (22) on every instance, the Grafana UI (3000) and the Alloy UI (12345). Empty or null opens nothing."
   type        = list(string)
   default     = null
+
+  validation {
+    condition     = var.admin_cidrs != null && length(var.admin_cidrs) > 0
+    error_message = "admin_cidrs must contain at least one CIDR (your IP as a /32); otherwise SSH and the UIs would be closed."
+  }
 }
 
 variable "dns_zone_name" {

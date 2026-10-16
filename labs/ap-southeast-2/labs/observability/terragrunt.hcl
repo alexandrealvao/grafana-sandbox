@@ -31,8 +31,8 @@ inputs = {
   name_prefix   = "grafana-sandbox"
   instance_type = "t3.small"
 
-  # SSH open to the whole internet (requested). Restrict to your own IP when possible.
-  ssh_allowed_cidrs = ["0.0.0.0/0"]
+  # admin_cidrs (your public IP as a /32: SSH on all instances, Grafana 3000, Alloy UI 12345) is set
+  # in the git-ignored terraform.tfvars next to this file. See terraform.tfvars.example.
 
   dns_zone_name = "labs3.dnx.host"
 }

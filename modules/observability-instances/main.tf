@@ -145,12 +145,25 @@ resource "aws_vpc_security_group_egress_rule" "all" {
 }
 
 locals {
+  # node_exporter (9100) on every instance, scraped by the Alloy gateway.
+  node_exporter_rules = {
+    for role in keys(local.instances) : "${role}-node-exporter" => {
+      target      = role
+      port        = 9100
+      source_type = "sg"
+      source      = "alloy"
+      description = "Alloy scrapes node_exporter"
+    }
+  }
+
+  # "Your IP" access: SSH on every instance, Grafana UI, and the Alloy UI.
+  admin_access = concat(
+    [for role in keys(local.instances) : { role = role, port = 22 }],
+    [{ role = "grafana", port = 3000 }, { role = "alloy", port = 12345 }],
+  )
+
   # source is either a CIDR ("cidr") or another role's security group ("sg").
   ingress_rules = {
-    grafana-ui = {
-      target      = "grafana", port = 3000, source_type = "cidr", source = var.vpc_cidr
-      description = "Grafana UI from the VPC (use SSM port forwarding)"
-    }
     prometheus-from-grafana = {
       target      = "prometheus", port = 9090, source_type = "sg", source = "grafana"
       description = "Grafana queries Prometheus"
@@ -163,6 +176,10 @@ locals {
       target      = "database", port = 5432, source_type = "sg", source = "grafana"
       description = "Grafana connects to PostgreSQL"
     }
+    database-from-alloy = {
+      target      = "database", port = 5432, source_type = "sg", source = "alloy"
+      description = "Alloy connects to PostgreSQL"
+    }
     alloy-otlp-grpc = {
       target      = "alloy", port = 4317, source_type = "cidr", source = var.vpc_cidr
       description = "OTLP gRPC from the VPC"
@@ -171,15 +188,11 @@ locals {
       target      = "alloy", port = 4318, source_type = "cidr", source = var.vpc_cidr
       description = "OTLP HTTP from the VPC"
     }
-    alloy-metrics-from-prometheus = {
-      target      = "alloy", port = 12345, source_type = "sg", source = "prometheus"
-      description = "Prometheus scrapes Alloy self-metrics"
-    }
   }
 }
 
 resource "aws_vpc_security_group_ingress_rule" "this" {
-  for_each = local.ingress_rules
+  for_each = merge(local.ingress_rules, local.node_exporter_rules)
 
   security_group_id            = aws_security_group.this[each.value.target].id
   description                  = each.value.description
@@ -204,10 +217,11 @@ resource "aws_instance" "this" {
   key_name      = aws_key_pair.this.key_name
   subnet_id     = local.placement[each.key].subnet_id
   private_ip    = local.placement[each.key].private_ip
-  # Public subnet: the public address is the Elastic IP below, not an auto-assigned one.
-  associate_public_ip_address = false
-  vpc_security_group_ids      = [aws_security_group.this[each.key].id]
-  iam_instance_profile        = aws_iam_instance_profile.this.name
+  # associate_public_ip_address is left to the subnet default: the subnet auto-assigns a public IP at
+  # launch and AWS reports true, so forcing false would replace the instance on every plan.
+  # The Elastic IP below becomes the instance's public address once attached.
+  vpc_security_group_ids = [aws_security_group.this[each.key].id]
+  iam_instance_profile   = aws_iam_instance_profile.this.name
 
   metadata_options {
     http_endpoint = "enabled"
@@ -232,18 +246,19 @@ resource "aws_instance" "this" {
   depends_on = [aws_vpc_security_group_egress_rule.all]
 }
 
-# SSH from the allowed CIDRs. The public NACL (network stack) must also allow inbound TCP 22.
-resource "aws_vpc_security_group_ingress_rule" "ssh" {
+# Admin access from admin_cidrs: SSH (22) on all instances, Grafana UI (3000), Alloy UI (12345).
+# The public NACL (network stack) allows inbound 22 and the 1024-65535 range, which covers the rest.
+resource "aws_vpc_security_group_ingress_rule" "admin" {
   for_each = {
-    for pair in setproduct(keys(local.instances), toset(coalesce(var.ssh_allowed_cidrs, []))) :
-    "${pair[0]}-${pair[1]}" => { role = pair[0], cidr = pair[1] }
+    for pair in setproduct(local.admin_access, coalesce(var.admin_cidrs, [])) :
+    "${pair[0].role}-${pair[0].port}-${pair[1]}" => { role = pair[0].role, port = pair[0].port, cidr = pair[1] }
   }
 
   security_group_id = aws_security_group.this[each.value.role].id
-  description       = "SSH from ${each.value.cidr}"
+  description       = "Port ${each.value.port} from ${each.value.cidr}"
   ip_protocol       = "tcp"
-  from_port         = 22
-  to_port           = 22
+  from_port         = each.value.port
+  to_port           = each.value.port
   cidr_ipv4         = each.value.cidr
 
   tags = local.common_tags

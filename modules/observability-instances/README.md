@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Deploys four small Amazon Linux 2023 EC2 instances in public subnets for a Grafana sandbox: **grafana**, **prometheus**, **database** and **alloy** (Alloy gateway). The instances are bare: no user_data, no software. Each has a single encrypted gp3 disk (the root volume, 30 GiB by default) and an Elastic IP. Security groups pre-open the expected ports (Grafana 3000, Prometheus 9090, PostgreSQL 5432, Alloy 4317/4318/12345). Security groups only allow traffic from the VPC CIDR (and between the instances), so the Elastic IPs are not reachable from the internet until you add rules; SSM Session Manager works out of the box. All instances share one ED25519 key pair; the private key is stored in Secrets Manager (`<name_prefix>/ssh-private-key`). SSH (TCP 22) is only opened to the CIDRs in `ssh_allowed_cidrs` (none by default); the public NACL must allow inbound 22 as well.
+Deploys four small Amazon Linux 2023 EC2 instances in public subnets for a Grafana sandbox: **grafana**, **prometheus**, **database** and **alloy** (Alloy gateway). The instances are bare: no user_data, no software. Each has a single encrypted gp3 disk (the root volume, 30 GiB by default) and an Elastic IP. Security groups pre-open the expected ports (Grafana 3000, Prometheus 9090, PostgreSQL 5432, Alloy 4317/4318/12345). Internal ports are only open between the instances (by security group) or to the VPC CIDR; the Elastic IPs are reachable from the internet only on the `admin_cidrs` ports; SSM Session Manager works out of the box. All instances share one ED25519 key pair; the private key is stored in Secrets Manager (`<name_prefix>/ssh-private-key`). Admin access (SSH 22 on all instances, Grafana 3000, Alloy UI 12345) is only opened to `admin_cidrs` (none by default); the public NACL must allow inbound 22 as well.
 
 Optionally, with `dns_zone_name` set, an A record `<name_prefix>-<role>.<zone>` pointing to each instance's Elastic IP is created in that existing public hosted zone. The records point at the instances' Elastic IPs, so they stay stable across stop/start.
 
@@ -50,7 +50,7 @@ Connect with `aws ssm start-session --target <instance_id>`; the `grafana_port_f
 | instance_type | string | Instance type for all instances | `"t3.small"` | no |
 | root_volume_size | number | Size of the single (root) disk in GiB | `30` | no |
 | secret_recovery_window_in_days | number | Recovery window for the SSH key secrets | `7` | no |
-| ssh_allowed_cidrs | list(string) | CIDRs allowed to reach SSH on every instance | `null` | no |
+| admin_cidrs | list(string) | Your IP(s): SSH 22 on all instances, Grafana UI 3000, Alloy UI 12345 | `null` (must be set; validation fails otherwise) | yes |
 | dns_zone_name | string | Existing public Route 53 zone; creates `<name_prefix>-<role>.<zone>` A records | `null` | no |
 | tags | map(string) | Extra tags | `null` | no |
 
