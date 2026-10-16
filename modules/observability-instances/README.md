@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Deploys four small Amazon Linux 2023 EC2 instances in public subnets for a Grafana sandbox: **grafana**, **prometheus**, **database** and **alloy** (Alloy gateway). The instances are bare: no user_data, no software. Each has a single encrypted gp3 disk (the root volume, 30 GiB by default) and an Elastic IP. Security groups pre-open the expected ports (Grafana 3000, Prometheus 9090, PostgreSQL 5432, Alloy 4317/4318/12345). Security groups only allow traffic from the VPC CIDR (and between the instances), so the Elastic IPs are not reachable from the internet until you add rules; SSM Session Manager works out of the box. Each instance has its own ED25519 key pair; the private key is stored in Secrets Manager (`<name_prefix>/<role>/ssh-private-key`). SSH (TCP 22) is only opened to the CIDRs in `ssh_allowed_cidrs` (none by default); the public NACL must allow inbound 22 as well.
+Deploys four small Amazon Linux 2023 EC2 instances in public subnets for a Grafana sandbox: **grafana**, **prometheus**, **database** and **alloy** (Alloy gateway). The instances are bare: no user_data, no software. Each has a single encrypted gp3 disk (the root volume, 30 GiB by default) and an Elastic IP. Security groups pre-open the expected ports (Grafana 3000, Prometheus 9090, PostgreSQL 5432, Alloy 4317/4318/12345). Security groups only allow traffic from the VPC CIDR (and between the instances), so the Elastic IPs are not reachable from the internet until you add rules; SSM Session Manager works out of the box. All instances share one ED25519 key pair; the private key is stored in Secrets Manager (`<name_prefix>/ssh-private-key`). SSH (TCP 22) is only opened to the CIDRs in `ssh_allowed_cidrs` (none by default); the public NACL must allow inbound 22 as well.
 
 Optionally, with `dns_zone_name` set, an A record `<name_prefix>-<role>.<zone>` pointing to each instance's Elastic IP is created in that existing public hosted zone. The records point at the instances' Elastic IPs, so they stay stable across stop/start.
 
@@ -63,5 +63,5 @@ Connect with `aws ssm start-session --target <instance_id>`; the `grafana_port_f
 | public_ips | Elastic IPs by role |
 | dns_names | DNS names by role |
 | security_group_ids | Security group IDs by role |
-| ssh_private_key_secret_arns | Secrets Manager ARNs of the SSH private keys by role |
+| ssh_private_key_secret_arn | Secrets Manager ARN of the shared SSH private key |
 | grafana_port_forward_command | SSM port-forward command for the Grafana UI |

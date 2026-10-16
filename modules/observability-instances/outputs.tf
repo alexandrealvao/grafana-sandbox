@@ -18,9 +18,9 @@ output "security_group_ids" {
   value       = { for role, sg in aws_security_group.this : role => sg.id }
 }
 
-output "ssh_private_key_secret_arns" {
-  description = "Secrets Manager ARNs holding each instance's SSH private key, keyed by role."
-  value       = { for role, s in aws_secretsmanager_secret.private_key : role => s.arn }
+output "ssh_private_key_secret_arn" {
+  description = "Secrets Manager ARN holding the SSH private key shared by all instances."
+  value       = aws_secretsmanager_secret.private_key.arn
 }
 
 output "grafana_port_forward_command" {

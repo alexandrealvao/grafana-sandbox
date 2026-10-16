@@ -53,43 +53,35 @@ locals {
   }
 }
 
-################################################################################
-# SSH key pairs (one per instance, private key kept in Secrets Manager)
+############################################################################################################################################################
+# SSH key pair (one shared key for all instances, private key kept in Secrets Manager)
 ################################################################################
 
 resource "tls_private_key" "this" {
-  for_each = local.instances
-
   algorithm = "ED25519"
 }
 
 resource "aws_key_pair" "this" {
-  for_each = local.instances
-
-  key_name   = "${local.name_prefix}-${each.key}"
-  public_key = tls_private_key.this[each.key].public_key_openssh
+  key_name   = local.name_prefix
+  public_key = tls_private_key.this.public_key_openssh
 
   tags = local.common_tags
 }
 
 resource "aws_secretsmanager_secret" "private_key" {
-  for_each = local.instances
-
-  name                    = "${local.name_prefix}/${each.key}/ssh-private-key"
-  description             = "SSH private key (OpenSSH format) for the ${each.key} instance"
+  name                    = "${local.name_prefix}/ssh-private-key"
+  description             = "Shared SSH private key (OpenSSH format) for the ${local.name_prefix} instances"
   recovery_window_in_days = var.secret_recovery_window_in_days
 
   tags = local.common_tags
 }
 
 resource "aws_secretsmanager_secret_version" "private_key" {
-  for_each = local.instances
-
-  secret_id     = aws_secretsmanager_secret.private_key[each.key].id
-  secret_string = tls_private_key.this[each.key].private_key_openssh
+  secret_id     = aws_secretsmanager_secret.private_key.id
+  secret_string = tls_private_key.this.private_key_openssh
 }
 
-################################################################################
+####
 # IAM (SSM Session Manager access)
 ################################################################################
 
@@ -209,7 +201,7 @@ resource "aws_instance" "this" {
 
   ami           = data.aws_ssm_parameter.al2023.value
   instance_type = var.instance_type
-  key_name      = aws_key_pair.this[each.key].key_name
+  key_name      = aws_key_pair.this.key_name
   subnet_id     = local.placement[each.key].subnet_id
   private_ip    = local.placement[each.key].private_ip
   # Public subnet: the public address is the Elastic IP below, not an auto-assigned one.
